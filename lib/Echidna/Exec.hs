@@ -36,6 +36,8 @@ import Echidna.Types.Signature (MetadataCache, getBytecodeMetadata, lookupByteco
 import Echidna.Types.Tx (TxCall(..), Tx, TxResult(..), call, dst, initialTimestamp, initialBlockNumber)
 import Echidna.Types.Config (Env(..), EConfig(..), UIConf(..), OperationMode(..), OutputFormat(Text))
 import Echidna.Types.Solidity (SolConf(..))
+import qualified Data.Vector.Mutable as VMut
+import qualified Data.ByteString as BS
 
 -- | Broad categories of execution failures: reversions, illegal operations, and ???.
 data ErrorClass = RevertE | IllegalE | UnknownE
@@ -262,25 +264,33 @@ execTxWithCov tx = do
     -- the same as EVM.exec but collects coverage, will stop on a query
     execCov cache = do
      (vm, cm) <- get
-     let (r, vm', cm') = loop cache vm cm
+     (r, vm', cm') <- liftIO $ loop cache vm cm
      put (vm', cm')
      pure r
 
     -- | Repeatedly exec a step and add coverage until we have an end result
-    loop :: MetadataCache -> VM -> CoverageMap -> (VMResult, VM, CoverageMap)
+    loop :: MetadataCache -> VM -> CoverageMap -> IO (VMResult, VM, CoverageMap)
     loop cache vm cm = case vm._result of
-      Nothing  -> loop cache (stepVM vm) (addCoverage cache vm cm)
-      Just r   -> (r, vm, cm)
+      Nothing  -> loop cache (stepVM vm) =<< addCoverage cache vm cm
+      Just r   -> pure (r, vm, cm)
 
     -- | Execute one instruction on the EVM
     stepVM :: VM -> VM
     stepVM = execState exec1
 
     -- | Add current location to the CoverageMap
-    addCoverage :: MetadataCache -> VM -> CoverageMap -> CoverageMap
-    addCoverage cache vm = M.alter
-                       (Just . maybe mempty (S.insert $ currentCovLoc vm))
-                       (currentMeta cache vm)
+    addCoverage :: MetadataCache -> VM -> CoverageMap -> IO CoverageMap
+    addCoverage cache vm cm = do
+      let key = currentMeta cache vm
+      case Map.lookup key cm of
+        Nothing -> do
+          vec <- VMut.replicate (BS.length $ bcode vm) (-1, -1, Stop)
+          pure $ Map.insert key vec cm
+        Just vec -> do
+          VMut.modify vec (const (fromMaybe 0 $ vmOpIx vm, length vm._frames, Stop)) vm._state._pc
+          pure cm
+          -- (Just . maybe undefined undefined )
+          -- (currentMeta cache vm) cm
 
     -- | Get the VM's current execution location
     currentCovLoc vm = (vm._state._pc, fromMaybe 0 $ vmOpIx vm, length vm._frames, Stop)
@@ -290,6 +300,10 @@ execTxWithCov tx = do
       buffer <- vm ^? env . contracts . at vm._state._contract . _Just . bytecode
       let bc = forceBuf buffer
       pure $ lookupBytecodeMetadata cache bc
+
+    bcode vm =
+      let Just buffer = vm ^? env . contracts . at vm._state._contract . _Just . bytecode
+      in forceBuf buffer
 
 initialVM :: Bool -> VM
 initialVM ffi = vmForEthrunCreation mempty

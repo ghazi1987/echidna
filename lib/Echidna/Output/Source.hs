@@ -37,8 +37,7 @@ saveCoverage isHtml seed d sc cs s = let extension = if isHtml then ".html" else
 
 -- | Pretty-print the covered code
 ppCoveredCode :: Bool -> SourceCache -> [SolcContract] -> CoverageMap -> Text
-ppCoveredCode isHtml sc cs s | s == mempty = "Coverage map is empty"
-                             | otherwise   =
+ppCoveredCode isHtml sc cs s =
   let allFiles = zipWith (\(srcPath, _rawSource) srcLines -> (srcPath, V.map decodeUtf8 srcLines))
                    sc.files
                    sc.lines
@@ -121,7 +120,7 @@ srcMapCov sc s contracts =
     mapContract c =
       mapMaybe (srcMapForOpLocation c) .             -- Get the mapped line and tx result
       S.toList . fromMaybe S.empty $                 -- Convert from Set to list
-      M.lookup (getBytecodeMetadata c.runtimeCode) s -- Get the coverage information of the current contract
+      undefined -- M.lookup (getBytecodeMetadata c.runtimeCode) s -- Get the coverage information of the current contract
 
 -- | Given a source cache, a mapped line, return a tuple with the filename, number of line and tx result
 srcMapCodePosResult :: SourceCache -> (SrcMap, TxResult) -> Maybe (Text, Int, TxResult)
