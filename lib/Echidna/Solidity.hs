@@ -31,7 +31,7 @@ import EVM hiding (Env, env, contract, contracts, path)
 import EVM qualified (contracts, env)
 import EVM.ABI
 import EVM.Solidity
-import EVM.Types (Addr)
+import EVM.Types (Addr, FunctionSelector)
 
 import Echidna.ABI (encodeSig, encodeSigWithName, hashSig, fallback, commonTypeSizes, mkValidAbiInt, mkValidAbiUInt)
 import Echidna.Exec (execTx, initialVM)
@@ -41,7 +41,7 @@ import Echidna.Processor
 import Echidna.RPC (loadEthenoBatch)
 import Echidna.Test (createTests, isAssertionMode, isPropertyMode, isDapptestMode)
 import Echidna.Types.Config (EConfig(..), Env(..))
-import Echidna.Types.Signature (ContractName, FunctionHash, SolSignature, SignatureMap, getBytecodeMetadata)
+import Echidna.Types.Signature (ContractName, SolSignature, SignatureMap, getBytecodeMetadata)
 import Echidna.Types.Solidity
 import Echidna.Types.Test (EchidnaTest(..))
 import Echidna.Types.Tx (basicTx, createTxWithValue, unlimitedGasPerBlock, initialTimestamp, initialBlockNumber)
@@ -296,7 +296,7 @@ filterFallbacks _ [] [] sm = M.map f sm
                 ss' -> ss'
 filterFallbacks _ _ _ sm = sm
 
-prepareHashMaps :: [FunctionHash] -> [FunctionHash] -> SignatureMap -> (SignatureMap, Maybe SignatureMap)
+prepareHashMaps :: [FunctionSelector] -> [FunctionSelector] -> SignatureMap -> (SignatureMap, Maybe SignatureMap)
 prepareHashMaps [] _  m = (m, Nothing)                                -- No constant functions detected
 prepareHashMaps cs as m =
   (\case (hm, lm) | M.size hm > 0  && M.size lm > 0  -> (hm, Just lm) -- Usual case

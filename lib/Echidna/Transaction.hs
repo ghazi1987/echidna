@@ -15,14 +15,14 @@ import Data.Set qualified as Set
 import Data.Vector qualified as V
 import EVM hiding (value)
 import EVM.ABI (abiValueType)
-import EVM.Types (Expr(ConcreteBuf, Lit), Addr, W256)
+import EVM.Types (Expr(ConcreteBuf, Lit), Addr, W256, FunctionSelector)
 
 import Echidna.ABI
 import Echidna.Types.Random
 import Echidna.Orphans.JSON ()
 import Echidna.Types (fromEVM)
 import Echidna.Types.Buffer (forceBuf, forceLit)
-import Echidna.Types.Signature (SignatureMap, SolCall, ContractA, FunctionHash, MetadataCache, lookupBytecodeMetadata)
+import Echidna.Types.Signature (SignatureMap, SolCall, ContractA, MetadataCache, lookupBytecodeMetadata)
 import Echidna.Types.Tx
 import Echidna.Types.World (World(..))
 import Echidna.Types.Campaign (Campaign(..))
@@ -78,7 +78,7 @@ genDelay mv ds = do
   where randValue = fromIntegral <$> getRandomR (1 :: Integer, fromIntegral mv)
         fromDict = (`mod` (mv + 1)) <$> rElem' ds
 
-genValue :: MonadRandom m => W256 -> Set W256 -> [FunctionHash] -> SolCall -> m W256
+genValue :: MonadRandom m => W256 -> Set W256 -> [FunctionSelector] -> SolCall -> m W256
 genValue mv ds ps sc =
   if sig `elem` ps then
     join $ oftenUsually fromDict randValue
