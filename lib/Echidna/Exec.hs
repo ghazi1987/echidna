@@ -264,7 +264,7 @@ execTxWithCov tx = do
 
     -- | Repeatedly exec a step and add coverage until we have an end result
     loop :: MetadataCache -> VM -> CoverageMap -> (VMResult, VM, CoverageMap)
-    loop cache vm cm = case vm._result of
+    loop cache !vm !cm = case vm._result of
       Nothing  -> loop cache (stepVM vm) (addCoverage cache vm cm)
       Just r   -> (r, vm, cm)
 
