@@ -6,7 +6,8 @@ module Echidna.Transaction where
 import Control.Lens
 import Control.Monad (join)
 import Control.Monad.Random.Strict (MonadRandom, getRandomR, uniform)
-import Control.Monad.State.Strict (MonadState, gets)
+import Control.Monad.State.Strict (MonadState, gets, modify')
+import Data.Bifunctor (second)
 import Data.HashMap.Strict qualified as M
 import Data.Map (Map, toList)
 import Data.Maybe (mapMaybe)
@@ -133,17 +134,29 @@ mutateTx t = pure t
 -- | Given a 'Transaction', set up some 'VM' so it can be executed. Effectively, this just brings
 -- 'Transaction's \"on-chain\".
 setupTx :: MonadState VM m => Tx -> m ()
-setupTx (Tx NoCall _ r _ _ _ (t, b)) = fromEVM . sequence_ $
-  [ state . pc .= 0, state . stack .= mempty, state . memory .= mempty
-  , block . timestamp %= (\x -> Lit (forceLit x + t)), block . number += b, loadContract r]
+setupTx (Tx NoCall _ r _ _ _ delay) = fromEVM $ do
+  modify' $ \vm -> vm
+    { _state = resetState' vm._state
+    , _block = advanceBlock delay vm._block
+    , forks = second (advanceBlock delay) <$> vm.forks
+    }
+  loadContract r
 
-setupTx (Tx c s r g gp v (t, b)) = fromEVM . sequence_ $
-  [ result .= Nothing, state . pc .= 0, state . stack .= mempty, state . memory .= mempty, state . gas .= g
-  , tx . gasprice .= gp, tx . origin .= s, state . caller .= Lit (fromIntegral s), state . callvalue .= Lit v
-  , block . timestamp %= (\x -> Lit (forceLit x + t)), block . number += b, setup] where
+setupTx (Tx c s r g gp v delay) = fromEVM $ do
+  modify' $ \vm -> vm
+    { _result = Nothing
+    , _state = (resetState' vm._state)
+        { _gas = g, _caller = Lit (fromIntegral s), _callvalue = Lit v }
+    , _tx = vm._tx { _gasprice = gp, _origin = s }
+    , _block = advanceBlock delay vm._block
+    , forks = second (advanceBlock delay) <$> vm.forks
+    }
+  setup
+  where
     setup = case c of
       SolCreate bc -> do
-        assign (env . contracts . at r) (Just $ initialContract (InitCode bc mempty) & set balance v)
+        assign (env . contracts . at r)
+               (Just $ (initialContract $ InitCode bc mempty) { _balance = v })
         loadContract r
         state . code .= RuntimeCode (ConcreteRuntimeCode bc)
       SolCall cd -> do
@@ -157,3 +170,11 @@ setupTx (Tx c s r g gp v (t, b)) = fromEVM . sequence_ $
     incrementBalance = (env . contracts . ix r . balance) += v
     encode (n, vs) = abiCalldata
       (encodeSig (n, abiValueType <$> vs)) $ V.fromList vs
+
+resetState' :: FrameState -> FrameState
+resetState' s = s { _pc = 0, _stack = mempty, _memory = mempty }
+
+advanceBlock :: (W256, W256) -> Block -> Block
+advanceBlock (t, b) block' =
+  block' { _timestamp = Lit (forceLit block'._timestamp + t)
+         , _number = block'._number + b }
