@@ -104,11 +104,13 @@ main = withUtf8 $ withCP65001 $ do
               }
 
   seed <- getRandomR (0, maxBound)
-  (vm, world, echidnaTests, dict) <- prepareContract env contracts cliFilePath cliSelectedContract seed
+  (vm, world, echidnaTests, dict, symTxs) <-
+    prepareContract env contracts cliFilePath cliSelectedContract seed
 
   initialCorpus <- loadInitialCorpus env world
+  let corpus = initialCorpus <> (pure <$> symTxs)
   -- start ui and run tests
-  campaign <- runReaderT (ui vm world echidnaTests dict initialCorpus) env
+  campaign <- runReaderT (ui vm world echidnaTests dict corpus) env
 
   contractsCache <- readIORef cacheContractsRef
   slotsCache <- readIORef cacheSlotsRef

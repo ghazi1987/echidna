@@ -105,8 +105,8 @@ runContract f selectedContract cfg = do
                 , fetchContractCache = cacheContracts
                 , fetchSlotCache = cacheSlots
                 , chainId = Nothing }
-  (vm, world, echidnaTests, dict) <- prepareContract env contracts (f :| []) selectedContract seed
-  let corpus = []
+  (vm, world, echidnaTests, dict, symTxs) <- prepareContract env contracts (f :| []) selectedContract seed
+  let corpus = pure <$> symTxs
   -- start ui and run tests
   runReaderT (runCampaign (pure False) vm world echidnaTests dict corpus) env
 
