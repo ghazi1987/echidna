@@ -1,4 +1,4 @@
-FROM ubuntu:focal AS builder-echidna
+FROM ubuntu:20.04 AS builder-echidna
 ENV LD_LIBRARY_PATH=/usr/local/lib PREFIX=/usr/local HOST_OS=Linux
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-suggests --no-install-recommends \
@@ -19,7 +19,7 @@ RUN .github/scripts/install-libff.sh
 RUN stack upgrade && stack setup && stack install --flag echidna:static --extra-include-dirs=/usr/local/include --extra-lib-dirs=/usr/local/lib
 
 
-FROM ubuntu:focal AS builder-python3
+FROM ubuntu:20.04 AS builder-python3
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-suggests --no-install-recommends \
         gcc \
@@ -39,7 +39,7 @@ ENV PATH="$PATH:/venv/bin"
 ENTRYPOINT [ "/usr/local/bin/solc-install", "/usr/local/bin/echidna" ]
 
 
-FROM ubuntu:focal AS final-ubuntu
+FROM ubuntu:20.04 AS final-ubuntu
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-suggests --no-install-recommends \
         ca-certificates \
